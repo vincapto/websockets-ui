@@ -26,6 +26,7 @@ console.log(`WebSocket server started on ws://localhost:${WS_PORT}`);
 wss.on("connection", (ws) => {
 	ws.on("message", (message) => {
 		let cmd;
+
 		try {
 			cmd = JSON.parse(message);
 		} catch (e) {
@@ -48,14 +49,13 @@ wss.on("connection", (ws) => {
 		} else if (cmd.type === "add_ships") {
 			handleAddShips(cmd, players, games, sendTurn, makeJsonMsg);
 		} else if (cmd.type === "attack" || cmd.type === "randomAttack") {
-			handleAttack(cmd, players, games, getShipCells, checkShot, sendTurn, sendUpdateWinners, makeJsonMsg);
+			handleAttack(cmd, players, games, checkShot, sendTurn, sendUpdateWinners, makeJsonMsg);
 		}
 	});
 	ws.on("close", () => {});
 });
 
 function sendUpdateRoom() {
-	// Show all rooms, not just those with 1 user
 	const roomsList = Array.from(rooms.values());
 	const data = roomsList.map((room) => ({
 		roomId: room.roomId,
@@ -64,8 +64,10 @@ function sendUpdateRoom() {
 			index: u.index,
 		})),
 	}));
+
 	const msg = makeJsonMsg("update_room", data);
 	sendToAll(wss, msg);
+
 	console.log("Sent:", { type: "update_room", data });
 }
 
@@ -74,17 +76,21 @@ function sendUpdateWinners() {
 		name,
 		wins,
 	}));
+
 	const msg = makeJsonMsg("update_winners", winners);
 	sendToAll(wss, msg);
+
 	console.log("Sent:", { type: "update_winners", data: winners });
 }
 
 function sendTurn(game) {
 	const msg = makeJsonMsg("turn", { currentPlayer: game.turn });
+
 	game.players.forEach((u) => {
 		const wsTarget = players.get(u.name).ws;
 		if (wsTarget && wsTarget.readyState === 1) wsTarget.send(msg);
 	});
+
 	console.log("Sent:", { type: "turn", data: { currentPlayer: game.turn } });
 }
 
@@ -92,27 +98,33 @@ function checkShot(game, defenderIndex, x, y) {
 	const ships = game.ships[defenderIndex] || [];
 	let status = "miss";
 	let win = false;
+
 	for (const ship of ships) {
 		const cells = getShipCells(ship);
+
 		for (const cell of cells) {
 			if (cell.x === x && cell.y === y) {
 				ship.hits = ship.hits || [];
-				// Prevent duplicate hits on the same cell
 				const alreadyHit = ship.hits.some(h => h.x === x && h.y === y);
+
 				if (!alreadyHit) {
 					ship.hits.push({ x, y });
 				}
+
 				if (ship.hits.length === ship.length) {
 					status = "killed";
 				} else {
 					status = "shot";
 				}
+
 				break;
 			}
 		}
 		if (status === "shot" || status === "killed") break;
 	}
+
 	if (ships.every((s) => s.hits && s.hits.length === s.length)) win = true;
+
 	return { status, win };
 }
 
@@ -120,7 +132,7 @@ function getShipCells(ship) {
 	const cells = [];
 	for (let i = 0; i < ship.length; i++) {
 		cells.push({
-			x: ship.position.x + (ship.direction ? 0 : i), // direction true = vertical
+			x: ship.position.x + (ship.direction ? 0 : i), 
 			y: ship.position.y + (ship.direction ? i : 0),
 		});
 	}
